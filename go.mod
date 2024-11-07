@@ -6,7 +6,6 @@ toolchain go1.22.4
 
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
-	github.com/go-kit/log v0.2.1
 	github.com/gosnmp/gosnmp v1.38.0
 	github.com/iaa-inc/gosdk v1.0.11
 	github.com/itchyny/timefmt-go v0.1.6
@@ -23,7 +22,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
-	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/mdlayher/socket v0.4.1 // indirect

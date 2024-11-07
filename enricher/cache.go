@@ -3,16 +3,15 @@ package enricher
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/iaa-inc/gosdk"
 	"github.com/iaa-inc/gosdk/admin"
 )
 
-func NewCache(api *gosdk.AdminClient, logger log.Logger) *Cache {
+func NewCache(api *gosdk.AdminClient, logger *slog.Logger) *Cache {
 	c := &Cache{
 		logger:      logger,
 		api:         api,
@@ -34,7 +33,7 @@ func NewCache(api *gosdk.AdminClient, logger log.Logger) *Cache {
 
 type Cache struct {
 	sync.RWMutex
-	logger      log.Logger
+	logger      *slog.Logger
 	api         *gosdk.AdminClient
 	devices     map[string]*admin.Switch
 	ports       map[string]*admin.Port
@@ -43,13 +42,13 @@ type Cache struct {
 }
 
 func (c *Cache) update() {
-	level.Info(c.logger).Log("msg", "Updating cache")
+	c.logger.Info("Updating cache")
 
 	// get the devices from the API
 	devices, err := admin.GetSwitches(context.Background(), c.api.Client(), 100, "0")
 	if err != nil {
 		fmt.Printf("Error getting devices: %v\n", err)
-		level.Warn(c.logger).Log("msg", "Error getting devices", "err", err)
+		c.logger.Warn("Error getting devices", "err", err)
 		return
 	}
 
@@ -88,7 +87,7 @@ func (c *Cache) update() {
 		}
 	}
 
-	level.Info(c.logger).Log("msg", "IAA Service cache updated", "devices", len(c.devices), "ports", len(c.ports), "switchPorts", len(c.portsByName), "ignoredSwitchPorts", ignored)
+	c.logger.Info("IAA Service cache updated", "devices", len(c.devices), "ports", len(c.ports), "switchPorts", len(c.portsByName), "ignoredSwitchPorts", ignored)
 }
 
 func (c *Cache) GetDevice(target string) *admin.Switch {

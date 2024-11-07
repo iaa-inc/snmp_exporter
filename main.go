@@ -25,6 +25,7 @@ import (
 	"syscall"
 
 	"github.com/alecthomas/kingpin/v2"
+	"github.com/iaa-inc/gosdk"
 	"github.com/prometheus/client_golang/prometheus"
 	versioncollector "github.com/prometheus/client_golang/prometheus/collectors/version"
 	"github.com/prometheus/client_golang/prometheus/promauto"
