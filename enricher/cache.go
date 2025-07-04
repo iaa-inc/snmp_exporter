@@ -21,9 +21,13 @@ func NewCache(api *gosdk.AdminClient, logger *slog.Logger) *Cache {
 		portsByIp:   portMap{},
 	}
 
+	// update cache before returning to avoid initial scrapes being done before the cache is filled
+	c.update()
+
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
-		for ; true; <-ticker.C {
+		for {
+			<-ticker.C
 			c.update()
 		}
 	}()
