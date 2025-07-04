@@ -15,15 +15,19 @@ func NewCache(api *gosdk.AdminClient, logger *slog.Logger) *Cache {
 	c := &Cache{
 		logger:      logger,
 		api:         api,
-		devices:     map[string]*admin.Switch{},
-		ports:       map[string]*admin.Port{},
-		portsByName: map[string]*admin.Port{},
-		portsByIp:   map[string]*admin.Port{},
+		devices:     switchMap{},
+		ports:       portMap{},
+		portsByName: portMap{},
+		portsByIp:   portMap{},
 	}
+
+	// update cache before returning to avoid initial scrapes being done before the cache is filled
+	c.update()
 
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
-		for ; true; <-ticker.C {
+		for {
+			<-ticker.C
 			c.update()
 		}
 	}()
@@ -31,14 +35,25 @@ func NewCache(api *gosdk.AdminClient, logger *slog.Logger) *Cache {
 	return c
 }
 
+type switchMap map[string]*admin.Switch
+type portMap map[string]*admin.Port
+
 type Cache struct {
 	sync.RWMutex
-	logger      *slog.Logger
-	api         *gosdk.AdminClient
-	devices     map[string]*admin.Switch
-	ports       map[string]*admin.Port
-	portsByName map[string]*admin.Port
-	portsByIp   map[string]*admin.Port
+	logger *slog.Logger
+	api    *gosdk.AdminClient
+
+	// devices maps switch IPv4 addresses to switches
+	devices switchMap
+
+	// ports maps port IDs to ports
+	ports portMap
+
+	// portsByName maps strings of the form switchname_portname to ports
+	portsByName portMap
+
+	// portsByIp maps strings of the form switchipv4_portname to ports
+	portsByIp portMap
 }
 
 func (c *Cache) update() {
@@ -52,11 +67,14 @@ func (c *Cache) update() {
 		return
 	}
 
-	c.Lock()
+	newDevices := make(switchMap)
+	newPorts := make(portMap)
+	newPortsByName := make(portMap)
+	newPortsByIp := make(portMap)
+
 	for _, device := range devices.Switches.Edges {
-		c.devices[device.Node.Ipv4_address] = &device.Node.Switch
+		newDevices[device.Node.Ipv4_address] = &device.Node.Switch
 	}
-	c.Unlock()
 
 	ignored := 0
 
@@ -71,34 +89,43 @@ func (c *Cache) update() {
 			}
 
 			// Cast consumer to the type
-			c.Lock()
-			c.ports[consumers.Port.Service_id] = &consumers.Port
-			c.Unlock()
+			newPorts[consumers.Port.Service_id] = &consumers.Port
 		}
 	}
 
 	// For all ports, create a mapping entry for the port name, to allow lookup by switch_name_if_name
-	for _, port := range c.ports {
+	for _, port := range newPorts {
 		for _, sp := range port.SwitchPorts {
-			c.Lock()
-			c.portsByName[fmt.Sprintf("%s_%s", port.Switch.Name, sp.Name)] = port
-			c.portsByIp[fmt.Sprintf("%s_%s", sp.Switch.Ipv4_address, sp.Name)] = port
-			c.Unlock()
+			newPortsByName[fmt.Sprintf("%s_%s", port.Switch.Name, sp.Name)] = port
+			newPortsByIp[fmt.Sprintf("%s_%s", sp.Switch.Ipv4_address, sp.Name)] = port
 		}
 	}
+
+	c.Lock()
+	defer c.Unlock()
+	c.devices = newDevices
+	c.ports = newPorts
+	c.portsByName = newPortsByName
+	c.portsByIp = newPortsByIp
 
 	c.logger.Info("IAA Service cache updated", "devices", len(c.devices), "ports", len(c.ports), "switchPorts", len(c.portsByName), "ignoredSwitchPorts", ignored)
 }
 
 func (c *Cache) GetDevice(target string) *admin.Switch {
+	c.RLock()
+	defer c.RUnlock()
 	return c.devices[target]
 }
 
 func (c *Cache) GetPort(id string) *admin.Port {
+	c.RLock()
+	defer c.RUnlock()
 	return c.ports[id]
 }
 
 func (c *Cache) GetPortByIfDescr(descr string, target string) *admin.Port {
+	c.RLock()
+	defer c.RUnlock()
 	port, ok := c.portsByName[fmt.Sprintf("%s_%s", target, descr)]
 	if !ok {
 		port, ok = c.portsByIp[fmt.Sprintf("%s_%s", target, descr)]
