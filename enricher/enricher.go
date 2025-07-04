@@ -32,6 +32,17 @@ func (e *Enricher) Enrich(target string, labels map[string]string) map[string]st
 	// strip "ix.asn.au" from target if it's there
 	target = strings.Replace(target, ".ix.asn.au", "", -1)
 
+	/*         | EXOS               | EOS
+	 * ifAlias | description-string | description
+	 *         | MBR: Acme          | port_XXXXXXX - MBR: Acme
+	 *         | AS1234 Acme        |
+	 * ifName  | 1:5                | Ethernet8/1
+	 * ifDescr | X870-32c Port 5    | Ethernet8/1
+	 *
+	 * EXOS does not appear to expose the display-string over SNMP, which is where we currently put the service ID,
+	 * so for these ports, we match the switchport names from the portal with ifName
+	 */
+
 	ifAlias := labels["ifAlias"]
 	ifName := labels["ifName"]
 	ifDescr := labels["ifDescr"]
