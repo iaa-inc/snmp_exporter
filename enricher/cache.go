@@ -15,10 +15,10 @@ func NewCache(api *gosdk.AdminClient, logger *slog.Logger) *Cache {
 	c := &Cache{
 		logger:      logger,
 		api:         api,
-		devices:     map[string]*admin.Switch{},
-		ports:       map[string]*admin.Port{},
-		portsByName: map[string]*admin.Port{},
-		portsByIp:   map[string]*admin.Port{},
+		devices:     switchMap{},
+		ports:       portMap{},
+		portsByName: portMap{},
+		portsByIp:   portMap{},
 	}
 
 	go func() {
@@ -31,14 +31,25 @@ func NewCache(api *gosdk.AdminClient, logger *slog.Logger) *Cache {
 	return c
 }
 
+type switchMap map[string]*admin.Switch
+type portMap map[string]*admin.Port
+
 type Cache struct {
 	sync.RWMutex
-	logger      *slog.Logger
-	api         *gosdk.AdminClient
-	devices     map[string]*admin.Switch
-	ports       map[string]*admin.Port
-	portsByName map[string]*admin.Port
-	portsByIp   map[string]*admin.Port
+	logger *slog.Logger
+	api    *gosdk.AdminClient
+
+	// devices maps switch IPv4 addresses to switches
+	devices switchMap
+
+	// ports maps port IDs to ports
+	ports portMap
+
+	// portsByName maps strings of the form switchname_portname to ports
+	portsByName portMap
+
+	// portsByIp maps strings of the form switchipv4_portname to ports
+	portsByIp portMap
 }
 
 func (c *Cache) update() {
