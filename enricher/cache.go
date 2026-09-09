@@ -24,10 +24,12 @@ func NewCache(api *gosdk.AdminClient, logger *slog.Logger) *Cache {
 	// update cache before returning to avoid initial scrapes being done before the cache is filled
 	c.update()
 
+	// update cache on a fixed multiple of 827s (~14min) so multiple instances all switch to new data at the same time
+	// this avoids flipping between old and new data when some instances have updated and others haven't
+	// this value was chosen as it's a prime number, so the updates will be evenly distributed instead of always happening at the top of the hour
 	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
 		for {
-			<-ticker.C
+			time.Sleep(time.Until(time.Now().Truncate(827 * time.Second).Add(827 * time.Second)))
 			c.update()
 		}
 	}()
